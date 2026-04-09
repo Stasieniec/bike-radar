@@ -3,8 +3,8 @@ import { scrapeMarktplaatsQuery } from "@/lib/marktplaats";
 import { sendSSE } from "@/lib/sse";
 import { SearchRequest, MatchedListing } from "@/lib/types";
 
-const CLASSIFICATION_BATCH_SIZE = 5;
-const CLASSIFICATION_BATCH_DELAY_MS = 3000;
+const CLASSIFICATION_BATCH_SIZE = 10;
+const CLASSIFICATION_BATCH_DELAY_MS = 1000;
 
 export async function POST(request: Request): Promise<Response> {
   const body = (await request.json()) as SearchRequest;

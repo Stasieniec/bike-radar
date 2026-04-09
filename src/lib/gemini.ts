@@ -99,16 +99,22 @@ export async function generateSearchQueries(
 
 // --- Pre-filter (cheap text-only batch call) ---
 
-const PREFILTER_PROMPT = `You are helping find a stolen bicycle on Marktplaats. Below is the owner's description of their stolen bike, followed by a numbered list of Marktplaats listing titles.
+const PREFILTER_PROMPT = `You are helping find a stolen bicycle on Marktplaats. Below is the owner's description of their stolen bike, followed by a numbered list of Marktplaats listing titles and descriptions.
 
 STOLEN BIKE DESCRIPTION:
 {description}
 
-For each listing, decide: could this POSSIBLY be the stolen bike based on the title alone?
-Err on the side of inclusion — if there's any chance, include it.
-Only exclude listings that are CLEARLY a different type of bike (e.g. children's bike, electric bike, cargo bike when looking for a road bike) or clearly a non-bike item.
+For each listing, decide: could this POSSIBLY be the stolen bike?
+Exclude listings where the title/description makes it CLEAR it's not the same bike:
+- Different bike TYPE (e.g. children's bike, electric bike, cargo bike, mountain bike when looking for a road bike)
+- Different BRAND explicitly stated (e.g. "Specialized Allez" when looking for a Giant)
+- Clearly VINTAGE/RETRO bikes when looking for a modern bike
+- Accessories, parts, or non-bike items
+- Women's bikes when looking for men's, or vice versa
 
-Respond with ONLY a JSON array of the listing numbers that should be KEPT for further analysis.
+KEEP listings where there's any reasonable doubt — vague listings, matching brand, matching type, or unclear descriptions.
+
+Respond with ONLY a JSON array of the listing numbers that should be KEPT.
 Example: [1, 3, 5, 8]`;
 
 const PREFILTER_BATCH_SIZE = 50;
@@ -125,7 +131,7 @@ export async function prefilterListings(
   for (let i = 0; i < listings.length; i += PREFILTER_BATCH_SIZE) {
     const batch = listings.slice(i, i + PREFILTER_BATCH_SIZE);
     const numbered = batch
-      .map((l, idx) => `${idx + 1}. ${l.title} — ${l.price}`)
+      .map((l, idx) => `${idx + 1}. ${l.title} — ${l.price} — ${l.description.slice(0, 120)}`)
       .join("\n");
 
     const prompt = PREFILTER_PROMPT.replace("{description}", description) +
