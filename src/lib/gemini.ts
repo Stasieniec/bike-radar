@@ -34,6 +34,7 @@ async function callGemini(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!res.ok) {
@@ -146,7 +147,9 @@ export async function classifyListing(
   // Fetch and add the listing's first image
   if (listing.imageUrls.length > 0) {
     try {
-      const imgRes = await fetch(listing.imageUrls[0]);
+      const imgRes = await fetch(listing.imageUrls[0], {
+        signal: AbortSignal.timeout(10000),
+      });
       if (imgRes.ok) {
         const buffer = await imgRes.arrayBuffer();
         const bytes = new Uint8Array(buffer);

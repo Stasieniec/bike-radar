@@ -3,7 +3,8 @@ import { scrapeMarktplaatsQuery } from "@/lib/marktplaats";
 import { sendSSE } from "@/lib/sse";
 import { SearchRequest, MatchedListing } from "@/lib/types";
 
-const CLASSIFICATION_BATCH_SIZE = 10;
+const CLASSIFICATION_BATCH_SIZE = 5;
+const CLASSIFICATION_BATCH_DELAY_MS = 2000;
 
 export async function POST(request: Request): Promise<Response> {
   const body = (await request.json()) as SearchRequest;
@@ -129,6 +130,13 @@ export async function POST(request: Request): Promise<Response> {
                 total: newListings.length,
                 matchesFound: totalMatches,
               });
+
+              // Delay between classification batches to respect Gemini rate limits
+              if (i + CLASSIFICATION_BATCH_SIZE < newListings.length) {
+                await new Promise((resolve) =>
+                  setTimeout(resolve, CLASSIFICATION_BATCH_DELAY_MS)
+                );
+              }
             }
           } catch {
             // Skip failed query, continue with the rest
