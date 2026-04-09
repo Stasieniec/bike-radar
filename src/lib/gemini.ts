@@ -1,15 +1,50 @@
-import { GoogleGenerativeAI, Part } from "@google/generative-ai";
 import { SearchQuery, ClassificationResult, MarktplaatsListing } from "./types";
 
 const MODEL = "gemini-2.5-flash";
+const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 // --- API Key Validation ---
 
 export async function validateApiKey(apiKey: string): Promise<boolean> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
-  );
+  const res = await fetch(`${API_BASE}/models?key=${apiKey}`);
   return res.ok;
+}
+
+// --- Gemini REST API helper ---
+
+interface GeminiPart {
+  text?: string;
+  inlineData?: { mimeType: string; data: string };
+}
+
+async function callGemini(
+  apiKey: string,
+  parts: GeminiPart[],
+  jsonMode: boolean = false
+): Promise<string> {
+  const url = `${API_BASE}/models/${MODEL}:generateContent?key=${apiKey}`;
+  const body: Record<string, unknown> = {
+    contents: [{ parts }],
+  };
+  if (jsonMode) {
+    body.generationConfig = { responseMimeType: "application/json" };
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini API error ${res.status}: ${err.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Empty response from Gemini");
+  return text;
 }
 
 // --- Query Generation ---
@@ -37,13 +72,7 @@ export async function generateSearchQueries(
   description: string,
   photos?: string[]
 ): Promise<SearchQuery[]> {
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: MODEL,
-    generationConfig: { responseMimeType: "application/json" },
-  });
-
-  const parts: Part[] = [
+  const parts: GeminiPart[] = [
     { text: `${QUERY_GENERATION_PROMPT}\n\nBike description: ${description}` },
   ];
 
@@ -56,8 +85,7 @@ export async function generateSearchQueries(
     }
   }
 
-  const result = await model.generateContent(parts);
-  const text = result.response.text();
+  const text = await callGemini(apiKey, parts, true);
   try {
     const parsed = JSON.parse(text);
     if (!Array.isArray(parsed)) throw new Error("Expected array");
@@ -95,12 +123,6 @@ export async function classifyListing(
   photos: string[] | undefined,
   listing: MarktplaatsListing
 ): Promise<ClassificationResult> {
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: MODEL,
-    generationConfig: { responseMimeType: "application/json" },
-  });
-
   const prompt = CLASSIFICATION_PROMPT
     .replace("{description}", description)
     .replace("{title}", listing.title)
@@ -108,7 +130,7 @@ export async function classifyListing(
     .replace("{price}", listing.price)
     .replace("{location}", listing.location);
 
-  const parts: Part[] = [{ text: prompt }];
+  const parts: GeminiPart[] = [{ text: prompt }];
 
   // Add user's reference photos
   if (photos?.length) {
@@ -126,7 +148,12 @@ export async function classifyListing(
       const imgRes = await fetch(listing.imageUrls[0]);
       if (imgRes.ok) {
         const buffer = await imgRes.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString("base64");
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
         const mimeType = imgRes.headers.get("content-type") || "image/jpeg";
         parts.push({ inlineData: { mimeType, data: base64 } });
       }
@@ -135,8 +162,7 @@ export async function classifyListing(
     }
   }
 
-  const result = await model.generateContent(parts);
-  const text = result.response.text();
+  const text = await callGemini(apiKey, parts, true);
   try {
     return JSON.parse(text) as ClassificationResult;
   } catch {

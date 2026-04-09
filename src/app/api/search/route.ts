@@ -3,8 +3,6 @@ import { scrapeMarktplaats } from "@/lib/marktplaats";
 import { sendSSE } from "@/lib/sse";
 import { SearchRequest, MatchedListing } from "@/lib/types";
 
-export const runtime = "edge";
-
 const CLASSIFICATION_BATCH_SIZE = 10;
 
 export async function POST(request: Request): Promise<Response> {

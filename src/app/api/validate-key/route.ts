@@ -1,7 +1,5 @@
 import { validateApiKey } from "@/lib/gemini";
 
-export const runtime = "edge";
-
 export async function POST(request: Request): Promise<Response> {
   try {
     const body = await request.json();
