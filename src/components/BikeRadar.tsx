@@ -30,6 +30,11 @@ export default function BikeRadar() {
   const [radiusKm, setRadiusKm] = useState(50);
   const [description, setDescription] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
+  const [stolenSince, setStolenSince] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().split("T")[0];
+  });
 
   // Search state
   const [searchStatus, setSearchStatus] = useState<SearchStatus>("idle");
@@ -39,6 +44,7 @@ export default function BikeRadar() {
   const [errorMessage, setErrorMessage] = useState("");
   const [totalScraped, setTotalScraped] = useState(0);
   const [nonMatches, setNonMatches] = useState<MarktplaatsListing[]>([]);
+  const [skippedCount, setSkippedCount] = useState(0);
   const [showAll, setShowAll] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
@@ -135,6 +141,7 @@ export default function BikeRadar() {
     setQueries([]);
     setErrorMessage("");
     setTotalScraped(0);
+    setSkippedCount(0);
     setProgress({ phase: "queries", message: "Generating search queries..." });
 
     abortRef.current = new AbortController();
@@ -149,6 +156,7 @@ export default function BikeRadar() {
           radiusKm,
           description,
           photos: photos.length > 0 ? photos : undefined,
+          stolenSince,
         }),
         signal: abortRef.current.signal,
       });
@@ -165,7 +173,7 @@ export default function BikeRadar() {
       setSearchStatus("error");
       setErrorMessage(e instanceof Error ? e.message : "Search failed");
     }
-  }, [apiKey, postcode, radiusKm, description, photos]);
+  }, [apiKey, postcode, radiusKm, description, photos, stolenSince]);
 
   const handleSSEEvent = (event: SSEEvent) => {
     switch (event.phase) {
@@ -178,13 +186,14 @@ export default function BikeRadar() {
         break;
 
       case "scraping":
-        setProgress({
+        setProgress((prev) => ({
           phase: "scraping",
-          message: `Searching Marktplaats (${event.queryIndex}/${event.queryCount})...`,
+          message: `Query ${event.queryIndex}/${event.queryCount}: "${event.query}" \u2014 ${event.newListings} new (${event.totalListings} total unique)`,
           current: event.queryIndex,
           total: event.queryCount,
-        });
-        setTotalScraped(event.total);
+          matchesFound: prev?.matchesFound,
+        }));
+        setTotalScraped(event.totalListings);
         break;
 
       case "classifying":
@@ -208,6 +217,7 @@ export default function BikeRadar() {
       case "done":
         setSearchStatus("done");
         setTotalScraped(event.totalScraped);
+        setSkippedCount(event.skipped);
         setProgress(null);
         break;
 
@@ -342,6 +352,23 @@ export default function BikeRadar() {
             </div>
           </div>
 
+          {/* Stolen since */}
+          <div className="mb-5">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Stolen since
+            </label>
+            <input
+              type="date"
+              value={stolenSince}
+              onChange={(e) => setStolenSince(e.target.value)}
+              max={new Date().toISOString().split("T")[0]}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+            <p className="mt-1.5 text-xs text-gray-400">
+              Only listings posted after this date will be checked
+            </p>
+          </div>
+
           {/* Description */}
           <div className="mb-5">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">
@@ -437,7 +464,7 @@ export default function BikeRadar() {
                   <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
                   {progress.message}
                 </div>
-                {progress.total && progress.current && (
+                {progress.total != null && progress.current != null && (
                   <div className="h-2 overflow-hidden rounded-full bg-blue-200">
                     <div
                       className="h-full rounded-full bg-blue-500 transition-all"
@@ -447,12 +474,16 @@ export default function BikeRadar() {
                     />
                   </div>
                 )}
-                {progress.matchesFound != null && progress.matchesFound > 0 && (
-                  <p className="mt-2 text-xs text-blue-600">
-                    Found {progress.matchesFound} potential match
-                    {progress.matchesFound !== 1 ? "es" : ""} so far
-                  </p>
-                )}
+                <div className="mt-2 flex items-center gap-3 text-xs text-blue-600">
+                  {totalScraped > 0 && (
+                    <span>{totalScraped} listings found</span>
+                  )}
+                  {progress.matchesFound != null && progress.matchesFound > 0 && (
+                    <span>
+                      {progress.matchesFound} match{progress.matchesFound !== 1 ? "es" : ""}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 
@@ -469,6 +500,11 @@ export default function BikeRadar() {
                 Scanned <strong>{totalScraped}</strong> listings. Found{" "}
                 <strong>{matches.length}</strong> potential match
                 {matches.length !== 1 ? "es" : ""}.
+                {skippedCount > 0 && (
+                  <span className="text-gray-400">
+                    {" "}{skippedCount} listing{skippedCount !== 1 ? "s" : ""} could not be analyzed.
+                  </span>
+                )}
               </div>
             )}
 
