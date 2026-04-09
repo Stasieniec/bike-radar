@@ -2,7 +2,7 @@ import { MarktplaatsListing } from "./types";
 
 const MARKTPLAATS_API = "https://www.marktplaats.nl/lrp/api/search";
 const BIKE_CATEGORY_L1 = 445; // Fietsen en Brommers
-const RESULTS_PER_PAGE = 30;
+const RESULTS_PER_PAGE = 100;
 const MAX_PAGES_PER_QUERY = 100;
 const REQUEST_DELAY_MS = 1000;
 
@@ -77,6 +77,13 @@ export async function scrapeMarktplaatsQuery(
   const distanceMeters = RADIUS_TO_METERS[radiusKm] || 50000;
   const cutoffDate = new Date(stolenSince);
 
+  // Pick the tightest server-side date filter that covers the stolen date
+  const daysSinceStolen = Math.floor(
+    (Date.now() - cutoffDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const offeredSince =
+    daysSinceStolen <= 0 ? "Vandaag" : daysSinceStolen <= 1 ? "Gisteren" : "Een week";
+
   for (let page = 0; page < MAX_PAGES_PER_QUERY; page++) {
     const params = new URLSearchParams({
       query,
@@ -87,6 +94,8 @@ export async function scrapeMarktplaatsQuery(
       distanceMeters: String(distanceMeters),
       sortBy: "SORT_ON_DATE",
       sortOrder: "DECREASING",
+      bypassSpellingSuggestion: "true",
+      "attributesByKey[]": `offeredSince:${offeredSince}`,
     });
 
     let items: Record<string, unknown>[];
@@ -125,7 +134,7 @@ export async function scrapeMarktplaatsQuery(
       listings.push({
         itemId,
         title: (item.title as string) || "",
-        description: (item.description as string) || "",
+        description: (item.categorySpecificDescription as string) || (item.description as string) || "",
         price: formatPrice(item.priceInfo as Record<string, unknown> | null),
         imageUrls: ((item.imageUrls as string[]) || []).map((u: string) =>
           u.startsWith("//") ? `https:${u}` : u
