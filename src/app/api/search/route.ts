@@ -11,6 +11,18 @@ export async function POST(request: Request): Promise<Response> {
   const body = (await request.json()) as SearchRequest;
   const { apiKey, postcode, radiusKm, description, photos } = body;
 
+  // Input validation
+  if (!apiKey || !postcode || !description || radiusKm == null) {
+    return Response.json(
+      { error: "Missing required fields: apiKey, postcode, radiusKm, description" },
+      { status: 400 }
+    );
+  }
+
+  if (!/^[1-9]\d{3}[A-Za-z]{2}$/.test(postcode)) {
+    return Response.json({ error: "Invalid Dutch postcode" }, { status: 400 });
+  }
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -52,9 +64,10 @@ export async function POST(request: Request): Promise<Response> {
                 reason: result.value.reason,
               };
               sendSSE(controller, encoder, { phase: "match", listing: matched });
-            } else {
+            } else if (result.status === "fulfilled") {
               sendSSE(controller, encoder, { phase: "non_match", listing: batch[j] });
             }
+            // rejected promises (API errors) are silently skipped
           }
 
           sendSSE(controller, encoder, {

@@ -58,7 +58,13 @@ export async function generateSearchQueries(
 
   const result = await model.generateContent(parts);
   const text = result.response.text();
-  return JSON.parse(text) as SearchQuery[];
+  try {
+    const parsed = JSON.parse(text);
+    if (!Array.isArray(parsed)) throw new Error("Expected array");
+    return parsed as SearchQuery[];
+  } catch {
+    throw new Error("Failed to parse search queries from Gemini response");
+  }
 }
 
 // --- Classification ---
@@ -131,7 +137,11 @@ export async function classifyListing(
 
   const result = await model.generateContent(parts);
   const text = result.response.text();
-  return JSON.parse(text) as ClassificationResult;
+  try {
+    return JSON.parse(text) as ClassificationResult;
+  } catch {
+    return { match: false, confidence: 0, reason: "Failed to parse response" };
+  }
 }
 
 // --- Helpers ---
