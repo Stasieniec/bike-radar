@@ -6,6 +6,48 @@ const RESULTS_PER_PAGE = 30;
 const MAX_PAGES_PER_QUERY = 100;
 const REQUEST_DELAY_MS = 1000;
 
+const DUTCH_MONTHS: Record<string, number> = {
+  jan: 0, feb: 1, mrt: 2, apr: 3, mei: 4, jun: 5,
+  jul: 6, aug: 7, sep: 8, okt: 9, nov: 10, dec: 11,
+};
+
+/**
+ * Parse Dutch date strings from Marktplaats API.
+ * Formats: "Vandaag", "Gisteren", "Eergisteren", "12 mrt 26", "5 apr 25"
+ */
+function parseDutchDate(dateStr: string): Date | null {
+  const lower = dateStr.toLowerCase().trim();
+
+  if (lower === "vandaag") return today();
+  if (lower === "gisteren") return daysAgo(1);
+  if (lower === "eergisteren") return daysAgo(2);
+
+  // Match "12 mrt 26" or "5 apr 25"
+  const match = lower.match(/^(\d{1,2})\s+([a-z]{3})\s+(\d{2,4})$/);
+  if (match) {
+    const day = parseInt(match[1], 10);
+    const month = DUTCH_MONTHS[match[2]];
+    const rawYear = parseInt(match[3], 10);
+    if (month == null || isNaN(day) || isNaN(rawYear)) return null;
+    const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+    return new Date(year, month, day);
+  }
+
+  return null;
+}
+
+function today(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function daysAgo(n: number): Date {
+  const d = today();
+  d.setDate(d.getDate() - n);
+  return d;
+}
+
 const RADIUS_TO_METERS: Record<number, number> = {
   3: 3000,
   5: 5000,
@@ -66,15 +108,15 @@ export async function scrapeMarktplaatsQuery(
       if (seen.has(itemId)) continue;
 
       // Parse listing date — include if missing or unparseable (don't accidentally filter out)
-      const rawDate = (item.date as string) || (item.timestamp as string) || "";
+      const rawDate = (item.date as string) || "";
       let datePosted = "";
       if (rawDate) {
-        const parsed = new Date(rawDate);
-        if (!isNaN(parsed.getTime())) {
+        const parsed = parseDutchDate(rawDate);
+        if (parsed) {
           datePosted = parsed.toISOString();
+          if (parsed < cutoffDate) continue;
         }
       }
-      if (datePosted && new Date(datePosted) < cutoffDate) continue;
 
       hasNewItemOnPage = true;
 
