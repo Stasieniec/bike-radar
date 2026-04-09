@@ -56,13 +56,14 @@ Based on the bike description (and photos if provided), generate 8-15 search que
 Generate a mix of:
 - SPECIFIC: brand + model + color (e.g. "Giant Escape 3 rood")
 - MEDIUM: partial features (e.g. "Giant stadsfiets", "rode herenfiets")
-- VAGUE: generic terms a lazy seller might use (e.g. "herenfiets", "fiets ophalen", "stadsfiets")
+- VAGUE: generic terms a lazy seller might use (e.g. "herenfiets", "stadsfiets", "fiets")
 
 Rules:
 - Write queries in Dutch (most Marktplaats listings are in Dutch)
 - Include common informal terms and abbreviations
 - Think about how a thief (not the owner) would describe the bike
 - Include color names in Dutch (rood, blauw, zwart, wit, groen, grijs, etc.)
+- NEVER include marketplace action words like "kopen", "te koop", "ophalen", "zoeken" — these are unnatural for listing titles on a marketplace
 
 Respond with ONLY a JSON array:
 [{"query": "search term", "specificity": "specific"}, {"query": "another term", "specificity": "medium"}, ...]`;

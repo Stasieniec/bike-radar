@@ -125,6 +125,18 @@ export default function BikeRadar() {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  // --- Dismiss match ---
+
+  const dismissMatch = useCallback((itemId: string) => {
+    setMatches((prev) => {
+      const dismissed = prev.find((m) => m.itemId === itemId);
+      if (dismissed) {
+        setNonMatches((prevNon) => [dismissed, ...prevNon]);
+      }
+      return prev.filter((m) => m.itemId !== itemId);
+    });
+  }, []);
+
   // --- Search ---
 
   const canSearch =
@@ -540,46 +552,63 @@ export default function BikeRadar() {
                   Potential Matches
                 </h2>
                 {matches.map((m) => (
-                  <a
+                  <div
                     key={m.itemId}
-                    href={m.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+                    className="flex gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
                   >
-                    {m.imageUrls.length > 0 ? (
-                      <img
-                        src={m.imageUrls[0]}
-                        alt={m.title}
-                        className="h-24 w-24 flex-shrink-0 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
-                        No image
-                      </div>
-                    )}
+                    <a
+                      href={m.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0"
+                    >
+                      {m.imageUrls.length > 0 ? (
+                        <img
+                          src={m.imageUrls[0]}
+                          alt={m.title}
+                          className="h-24 w-24 rounded-lg object-cover transition-opacity hover:opacity-80"
+                        />
+                      ) : (
+                        <div className="flex h-24 w-24 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+                          No image
+                        </div>
+                      )}
+                    </a>
                     <div className="min-w-0 flex-1">
-                      <h3 className="truncate font-medium text-gray-900">
-                        {m.title}
-                      </h3>
+                      <a
+                        href={m.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="truncate font-medium text-gray-900 hover:text-blue-600"
+                      >
+                        <h3 className="truncate">{m.title}</h3>
+                      </a>
                       <p className="mt-0.5 text-sm text-gray-500">
                         {m.price} &middot; {m.location}{" "}
                         {m.distance > 0 ? `\u00B7 ${m.distance} km` : ""}
                       </p>
                       <p className="mt-1.5 text-xs text-blue-600">{m.reason}</p>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
-                          <div
-                            className="h-full rounded-full bg-blue-500"
-                            style={{ width: `${m.confidence * 100}%` }}
-                          />
+                      <div className="mt-1.5 flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
+                            <div
+                              className="h-full rounded-full bg-blue-500"
+                              style={{ width: `${m.confidence * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-400">
+                            {Math.round(m.confidence * 100)}%
+                          </span>
                         </div>
-                        <span className="text-xs text-gray-400">
-                          {Math.round(m.confidence * 100)}%
-                        </span>
+                        <button
+                          onClick={() => dismissMatch(m.itemId)}
+                          className="rounded-md px-2 py-0.5 text-xs text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                        >
+                          Not my bike
+                        </button>
                       </div>
                     </div>
-                  </a>
+                  </div>
                 ))}
               </div>
             )}
