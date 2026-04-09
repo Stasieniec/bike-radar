@@ -1,10 +1,10 @@
-import { generateSearchQueries, classifyListing } from "@/lib/gemini";
+import { generateSearchQueries, prefilterListings, classifyListing } from "@/lib/gemini";
 import { scrapeMarktplaatsQuery } from "@/lib/marktplaats";
 import { sendSSE } from "@/lib/sse";
 import { SearchRequest, MatchedListing } from "@/lib/types";
 
 const CLASSIFICATION_BATCH_SIZE = 5;
-const CLASSIFICATION_BATCH_DELAY_MS = 2000;
+const CLASSIFICATION_BATCH_DELAY_MS = 3000;
 
 export async function POST(request: Request): Promise<Response> {
   const body = (await request.json()) as SearchRequest;
@@ -63,9 +63,22 @@ export async function POST(request: Request): Promise<Response> {
               totalListings: totalScraped,
             });
 
-            // Classify this query's new listings in batches
-            for (let i = 0; i < newListings.length; i += CLASSIFICATION_BATCH_SIZE) {
-              const batch = newListings.slice(i, i + CLASSIFICATION_BATCH_SIZE);
+            // Pre-filter: cheap text-only call to eliminate obviously irrelevant listings
+            const candidates = await prefilterListings(
+              apiKey,
+              description,
+              newListings
+            );
+
+            sendSSE(controller, encoder, {
+              phase: "prefiltering",
+              kept: candidates.length,
+              total: newListings.length,
+            });
+
+            // Classify only pre-filtered candidates in batches
+            for (let i = 0; i < candidates.length; i += CLASSIFICATION_BATCH_SIZE) {
+              const batch = candidates.slice(i, i + CLASSIFICATION_BATCH_SIZE);
 
               const results = await Promise.allSettled(
                 batch.map((listing) =>
@@ -126,8 +139,8 @@ export async function POST(request: Request): Promise<Response> {
 
               sendSSE(controller, encoder, {
                 phase: "classifying",
-                current: Math.min(i + CLASSIFICATION_BATCH_SIZE, newListings.length),
-                total: newListings.length,
+                current: Math.min(i + CLASSIFICATION_BATCH_SIZE, candidates.length),
+                total: candidates.length,
                 matchesFound: totalMatches,
               });
 

@@ -208,10 +208,18 @@ export default function BikeRadar() {
         setTotalScraped(event.totalListings);
         break;
 
+      case "prefiltering":
+        setProgress((prev) => ({
+          phase: "prefiltering",
+          message: `Pre-filtered: ${event.kept} of ${event.total} listings could be relevant`,
+          matchesFound: prev?.matchesFound,
+        }));
+        break;
+
       case "classifying":
         setProgress({
           phase: "classifying",
-          message: `Analyzing listing ${event.current}/${event.total}...`,
+          message: `Analyzing listing ${event.current}/${event.total} with AI vision...`,
           current: event.current,
           total: event.total,
           matchesFound: event.matchesFound,

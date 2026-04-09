@@ -97,7 +97,58 @@ export async function generateSearchQueries(
   }
 }
 
-// --- Classification ---
+// --- Pre-filter (cheap text-only batch call) ---
+
+const PREFILTER_PROMPT = `You are helping find a stolen bicycle on Marktplaats. Below is the owner's description of their stolen bike, followed by a numbered list of Marktplaats listing titles.
+
+STOLEN BIKE DESCRIPTION:
+{description}
+
+For each listing, decide: could this POSSIBLY be the stolen bike based on the title alone?
+Err on the side of inclusion — if there's any chance, include it.
+Only exclude listings that are CLEARLY a different type of bike (e.g. children's bike, electric bike, cargo bike when looking for a road bike) or clearly a non-bike item.
+
+Respond with ONLY a JSON array of the listing numbers that should be KEPT for further analysis.
+Example: [1, 3, 5, 8]`;
+
+const PREFILTER_BATCH_SIZE = 50;
+
+export async function prefilterListings(
+  apiKey: string,
+  description: string,
+  listings: MarktplaatsListing[]
+): Promise<MarktplaatsListing[]> {
+  if (listings.length === 0) return [];
+
+  const kept: MarktplaatsListing[] = [];
+
+  for (let i = 0; i < listings.length; i += PREFILTER_BATCH_SIZE) {
+    const batch = listings.slice(i, i + PREFILTER_BATCH_SIZE);
+    const numbered = batch
+      .map((l, idx) => `${idx + 1}. ${l.title} — ${l.price}`)
+      .join("\n");
+
+    const prompt = PREFILTER_PROMPT.replace("{description}", description) +
+      "\n\nLISTINGS:\n" + numbered;
+
+    try {
+      const text = await callGemini(apiKey, [{ text: prompt }], true);
+      const indices = JSON.parse(text) as number[];
+      for (const idx of indices) {
+        if (idx >= 1 && idx <= batch.length) {
+          kept.push(batch[idx - 1]);
+        }
+      }
+    } catch {
+      // If pre-filter fails, keep all listings in this batch (don't lose data)
+      kept.push(...batch);
+    }
+  }
+
+  return kept;
+}
+
+// --- Classification (expensive vision call) ---
 
 const CLASSIFICATION_PROMPT = `You are helping find a stolen bicycle. Compare this Marktplaats listing against the owner's description of their stolen bike.
 

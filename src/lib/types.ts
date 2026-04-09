@@ -45,6 +45,11 @@ export type SSEEvent =
       totalListings: number;
     }
   | {
+      phase: "prefiltering";
+      kept: number;
+      total: number;
+    }
+  | {
       phase: "classifying";
       current: number;
       total: number;
