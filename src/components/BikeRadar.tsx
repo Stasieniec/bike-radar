@@ -59,6 +59,12 @@ export default function BikeRadar() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey: key }),
       });
+      if (!res.ok) {
+        const text = await res.text();
+        setKeyStatus("invalid");
+        setKeyError(`Server error ${res.status}: ${text.slice(0, 200)}`);
+        return;
+      }
       const data = await res.json();
       if (data.valid) {
         setKeyStatus("valid");
@@ -67,9 +73,9 @@ export default function BikeRadar() {
         setKeyStatus("invalid");
         setKeyError(data.error || "Invalid API key");
       }
-    } catch {
+    } catch (e) {
       setKeyStatus("invalid");
-      setKeyError("Could not validate key");
+      setKeyError(e instanceof Error ? e.message : "Could not validate key");
     }
   }, []);
 
