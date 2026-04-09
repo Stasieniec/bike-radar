@@ -16,6 +16,7 @@ export interface MarktplaatsListing {
   location: string;
   distance: number;
   url: string;
+  datePosted: string; // ISO date string from Marktplaats API
 }
 
 // --- Classification ---
@@ -38,15 +39,25 @@ export type SSEEvent =
   | {
       phase: "scraping";
       query: string;
-      found: number;
-      total: number;
       queryIndex: number;
       queryCount: number;
+      newListings: number;
+      totalListings: number;
     }
-  | { phase: "classifying"; current: number; total: number; matchesFound: number }
+  | {
+      phase: "classifying";
+      current: number;
+      total: number;
+      matchesFound: number;
+    }
   | { phase: "match"; listing: MatchedListing }
   | { phase: "non_match"; listing: MarktplaatsListing }
-  | { phase: "done"; totalScraped: number; totalMatches: number }
+  | {
+      phase: "done";
+      totalScraped: number;
+      totalMatches: number;
+      skipped: number;
+    }
   | { phase: "error"; message: string };
 
 // --- API request/response ---
@@ -57,6 +68,7 @@ export interface SearchRequest {
   radiusKm: number;
   description: string;
   photos?: string[]; // base64 data URLs
+  stolenSince: string; // ISO date, e.g. "2026-04-01"
 }
 
 export interface ValidateKeyResponse {
