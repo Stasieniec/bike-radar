@@ -223,17 +223,25 @@ export default function BikeRadar() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-2xl px-4 py-12">
+      <div className="mx-auto max-w-2xl px-4 py-16 sm:py-20">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Bike Radar</h1>
-          <p className="mt-2 text-gray-500">
+        <header className="mb-10 text-center">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900">
+            Bike Radar
+          </h1>
+          <p className="mt-3 text-lg text-gray-500">
             Find your stolen bike on Marktplaats
           </p>
-        </div>
+          <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-gray-400">
+            Every year, hundreds of thousands of bikes are stolen in the
+            Netherlands. Many end up for sale on Marktplaats within days.
+            Bike Radar uses AI to scan listings and flag potential matches
+            so you can recover what&apos;s yours.
+          </p>
+        </header>
 
         {/* Form */}
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
           {/* API Key */}
           <div className="mb-5">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">
@@ -406,7 +414,7 @@ export default function BikeRadar() {
             <button
               onClick={startSearch}
               disabled={!canSearch}
-              className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
             >
               Search Marktplaats
             </button>
@@ -593,6 +601,17 @@ export default function BikeRadar() {
             )}
           </div>
         )}
+
+        {/* Footer */}
+        <footer className="mt-16 border-t border-gray-200 pt-6 text-center text-xs text-gray-400">
+          <p>
+            Bike Radar is a free, open-source tool. Your API key never
+            leaves your browser except to call Gemini directly.
+          </p>
+          <p className="mt-1">
+            Built to help bicycle theft victims in the Netherlands.
+          </p>
+        </footer>
       </div>
     </div>
   );
