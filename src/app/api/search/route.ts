@@ -41,93 +41,110 @@ export async function POST(request: Request): Promise<Response> {
         for (let qi = 0; qi < queries.length; qi++) {
           const query = queries[qi].query;
 
-          // Scrape this query
-          const newListings = await scrapeMarktplaatsQuery(
-            query,
-            postcode,
-            radiusKm,
-            stolenSince,
-            seen
-          );
-
-          totalScraped += newListings.length;
-
-          sendSSE(controller, encoder, {
-            phase: "scraping",
-            query,
-            queryIndex: qi + 1,
-            queryCount: queries.length,
-            newListings: newListings.length,
-            totalListings: totalScraped,
-          });
-
-          // Classify this query's new listings in batches
-          for (let i = 0; i < newListings.length; i += CLASSIFICATION_BATCH_SIZE) {
-            const batch = newListings.slice(i, i + CLASSIFICATION_BATCH_SIZE);
-
-            const results = await Promise.allSettled(
-              batch.map((listing) =>
-                classifyListing(apiKey, description, photos, listing)
-              )
+          try {
+            // Scrape this query
+            const newListings = await scrapeMarktplaatsQuery(
+              query,
+              postcode,
+              radiusKm,
+              stolenSince,
+              seen
             );
 
-            for (let j = 0; j < results.length; j++) {
-              const result = results[j];
-
-              if (result.status === "fulfilled" && result.value.match) {
-                totalMatches++;
-                const matched: MatchedListing = {
-                  ...batch[j],
-                  confidence: result.value.confidence,
-                  reason: result.value.reason,
-                };
-                sendSSE(controller, encoder, {
-                  phase: "match",
-                  listing: matched,
-                });
-              } else if (result.status === "fulfilled") {
-                sendSSE(controller, encoder, {
-                  phase: "non_match",
-                  listing: batch[j],
-                });
-              } else {
-                // Retry once on failure
-                try {
-                  const retry = await classifyListing(
-                    apiKey,
-                    description,
-                    photos,
-                    batch[j]
-                  );
-                  if (retry.match) {
-                    totalMatches++;
-                    const matched: MatchedListing = {
-                      ...batch[j],
-                      confidence: retry.confidence,
-                      reason: retry.reason,
-                    };
-                    sendSSE(controller, encoder, {
-                      phase: "match",
-                      listing: matched,
-                    });
-                  } else {
-                    sendSSE(controller, encoder, {
-                      phase: "non_match",
-                      listing: batch[j],
-                    });
-                  }
-                } catch {
-                  totalSkipped++;
-                }
-              }
-            }
+            totalScraped += newListings.length;
 
             sendSSE(controller, encoder, {
-              phase: "classifying",
-              current: Math.min(i + CLASSIFICATION_BATCH_SIZE, newListings.length),
-              total: newListings.length,
-              matchesFound: totalMatches,
+              phase: "scraping",
+              query,
+              queryIndex: qi + 1,
+              queryCount: queries.length,
+              newListings: newListings.length,
+              totalListings: totalScraped,
             });
+
+            // Classify this query's new listings in batches
+            for (let i = 0; i < newListings.length; i += CLASSIFICATION_BATCH_SIZE) {
+              const batch = newListings.slice(i, i + CLASSIFICATION_BATCH_SIZE);
+
+              const results = await Promise.allSettled(
+                batch.map((listing) =>
+                  classifyListing(apiKey, description, photos, listing)
+                )
+              );
+
+              for (let j = 0; j < results.length; j++) {
+                const result = results[j];
+
+                if (result.status === "fulfilled" && result.value.match) {
+                  totalMatches++;
+                  const matched: MatchedListing = {
+                    ...batch[j],
+                    confidence: result.value.confidence,
+                    reason: result.value.reason,
+                  };
+                  sendSSE(controller, encoder, {
+                    phase: "match",
+                    listing: matched,
+                  });
+                } else if (result.status === "fulfilled") {
+                  sendSSE(controller, encoder, {
+                    phase: "non_match",
+                    listing: batch[j],
+                  });
+                } else {
+                  // Retry once on failure
+                  try {
+                    const retry = await classifyListing(
+                      apiKey,
+                      description,
+                      photos,
+                      batch[j]
+                    );
+                    if (retry.match) {
+                      totalMatches++;
+                      const matched: MatchedListing = {
+                        ...batch[j],
+                        confidence: retry.confidence,
+                        reason: retry.reason,
+                      };
+                      sendSSE(controller, encoder, {
+                        phase: "match",
+                        listing: matched,
+                      });
+                    } else {
+                      sendSSE(controller, encoder, {
+                        phase: "non_match",
+                        listing: batch[j],
+                      });
+                    }
+                  } catch {
+                    totalSkipped++;
+                  }
+                }
+              }
+
+              sendSSE(controller, encoder, {
+                phase: "classifying",
+                current: Math.min(i + CLASSIFICATION_BATCH_SIZE, newListings.length),
+                total: newListings.length,
+                matchesFound: totalMatches,
+              });
+            }
+          } catch {
+            // Skip failed query, continue with the rest
+            sendSSE(controller, encoder, {
+              phase: "scraping",
+              query,
+              queryIndex: qi + 1,
+              queryCount: queries.length,
+              newListings: 0,
+              totalListings: totalScraped,
+            });
+          }
+
+          // Delay between queries to avoid rate limiting
+          if (qi < queries.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
 
