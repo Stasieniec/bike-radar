@@ -16,7 +16,8 @@ export async function POST(request: Request): Promise<Response> {
       return Response.json({ valid: true } satisfies ValidateKeyResponse);
     }
     return Response.json({ valid: false, error: "Invalid API key" } satisfies ValidateKeyResponse);
-  } catch {
-    return Response.json({ valid: false, error: "Could not validate API key" } satisfies ValidateKeyResponse);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return Response.json({ valid: false, error: `Validation failed: ${message}` } satisfies ValidateKeyResponse);
   }
 }
