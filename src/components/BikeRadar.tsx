@@ -240,6 +240,10 @@ export default function BikeRadar() {
               Gemini API Key
             </label>
             <div className="relative">
+              <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
               <input
                 type="password"
                 value={apiKey}
@@ -249,7 +253,7 @@ export default function BikeRadar() {
                 }}
                 onBlur={() => validateKey(apiKey)}
                 placeholder="Your Gemini API key"
-                className={`w-full rounded-lg border px-3 py-2 pr-10 text-sm transition-colors focus:outline-none focus:ring-2 ${
+                className={`w-full rounded-lg border pl-9 pr-10 py-2 text-sm transition-colors focus:outline-none focus:ring-2 ${
                   keyStatus === "valid"
                     ? "border-green-300 focus:ring-green-200"
                     : keyStatus === "invalid"
@@ -345,13 +349,21 @@ export default function BikeRadar() {
               <span className="font-normal text-gray-400">(optional, max 3)</span>
             </label>
             {photos.length < MAX_PHOTOS && (
-              <button
-                type="button"
+              <div
                 onClick={() => fileInputRef.current?.click()}
-                className="mb-2 w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-3 text-sm text-gray-400 transition-colors hover:border-blue-300 hover:text-blue-500"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handlePhotoAdd(e.dataTransfer.files);
+                }}
+                className="mb-2 w-full cursor-pointer rounded-lg border-2 border-dashed border-gray-300 px-4 py-3 text-center text-sm text-gray-400 transition-colors hover:border-blue-300 hover:text-blue-500"
               >
-                Click to add photos
-              </button>
+                Click or drag photos here
+              </div>
             )}
             <input
               ref={fileInputRef}
