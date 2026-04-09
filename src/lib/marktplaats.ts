@@ -65,9 +65,15 @@ export async function scrapeMarktplaatsQuery(
       const itemId = item.itemId as string;
       if (seen.has(itemId)) continue;
 
-      // Parse listing date — include if missing (don't accidentally filter out)
+      // Parse listing date — include if missing or unparseable (don't accidentally filter out)
       const rawDate = (item.date as string) || (item.timestamp as string) || "";
-      const datePosted = rawDate ? new Date(rawDate).toISOString() : "";
+      let datePosted = "";
+      if (rawDate) {
+        const parsed = new Date(rawDate);
+        if (!isNaN(parsed.getTime())) {
+          datePosted = parsed.toISOString();
+        }
+      }
       if (datePosted && new Date(datePosted) < cutoffDate) continue;
       if (!datePosted || new Date(datePosted) >= cutoffDate) {
         allOlderThanCutoff = false;
