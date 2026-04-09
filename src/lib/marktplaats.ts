@@ -43,7 +43,7 @@ export async function scrapeMarktplaatsQuery(
       offset: String(page * RESULTS_PER_PAGE),
       postcode,
       distanceMeters: String(distanceMeters),
-      sortBy: "SORT_INDEX",
+      sortBy: "SORT_ON_DATE",
       sortOrder: "DECREASING",
     });
 
@@ -59,7 +59,7 @@ export async function scrapeMarktplaatsQuery(
       break;
     }
 
-    let allOlderThanCutoff = true;
+    let hasNewItemOnPage = false;
 
     for (const item of items) {
       const itemId = item.itemId as string;
@@ -75,9 +75,8 @@ export async function scrapeMarktplaatsQuery(
         }
       }
       if (datePosted && new Date(datePosted) < cutoffDate) continue;
-      if (!datePosted || new Date(datePosted) >= cutoffDate) {
-        allOlderThanCutoff = false;
-      }
+
+      hasNewItemOnPage = true;
 
       seen.add(itemId);
 
@@ -102,8 +101,8 @@ export async function scrapeMarktplaatsQuery(
 
     onPageProgress?.(listings.length);
 
-    // If every listing on this page was older than cutoff, stop paginating
-    if (allOlderThanCutoff) break;
+    // If no new (unseen + within date range) listings on this page, stop paginating
+    if (!hasNewItemOnPage) break;
 
     // Delay between pages
     if (page < MAX_PAGES_PER_QUERY - 1) {
